@@ -282,3 +282,45 @@ java.lang.IllegalStateException: Module category is already registered: Combat
 `~/.gradle/gradle.properties` 里残留了一个已经失效的本机代理（`127.0.0.1:53106`），
 Gradle 走它拉取 Loom 插件时全部失败，报错是 `Plugin ... was not found`（看不出是网络问题）。
 删掉代理配置后 Loom 1.19.4 一次解析成功。**遇到「插件坐标明明存在却 not found」先查代理。**
+
+## 9. 自动宝库（Fuyi `AutoVault`）——第一阶段：定位 + 导航
+
+上游 Fuyi 的「自动宝库」是一条完整流水线，规模如下（反编译行数）：
+
+| 上游文件 | 行数 | 职责 |
+| --- | --- | --- |
+| `AutoVault.java` | 358 | 模块与 24 项设置 |
+| `AutoVaultRunner.java` | **5132** | 状态机：飞行→下挖→清怪→开宝库→补给→换密室 |
+| `supply/SupplyPack.java` | **1858** | 潜影盒补给（图腾/钥匙/食物） |
+| `ElytraFlight.java` | 735 | 鞘翅滑翔巡航 |
+| `ChamberFinder.java` | 261 | 按种子算密室坐标 |
+| `safety/SpawnerAvoider.java` | 241 | 刷怪笼规避 |
+| `combat/KillHelper.java` | 105 | 发包攻击 |
+| 其余（Store/Log/Api 等） | ~900 | 进度持久化、日志、版本适配 |
+
+合计约 **9800 行**。一次性照搬不现实，也不可能在没有游戏内验证的情况下保证正确，
+因此按阶段移植。**本版（1.6.0）交付第一阶段：定位 + 导航**。
+
+### 9.1 已实现（`AutoVault`，Production 分类）
+- **按种子定位**（`utils/ChamberFinder`）：用原版 `trial_chambers` 结构集参数
+  （spacing=34 / separation=12 / salt=94251327 / LINEAR）逐个 region 反算结构起点区块，
+  取区块中心，按距离排序取最近 N 个；
+- **目标标记**：方框 + 世界文字（序号 / 总数 / 距离）；
+- **自动导航**：`BaritoneBridge#pathToXZ`（步行）或 `#pathElytraTo`（鞘翅），
+  到达判定按水平距离，到了自动换下一个，全部走完给提示；
+- **可配置**：种子、数量、重新搜索距离、目标 Y、是否自动寻路、寻路方式、到达距离、渲染与配色。
+
+数学正确性用一次性自检验证过（`devProbe`，验证后已删除）：种子 `12345` 得到
+`(-216,72) (8,232) (136,-520) (-472,-296) (-296,584)`，坐标均为区块中心（`x % 16 == 8`），
+距离递增、无重复；`RandomSpreadStructurePlacement` 改为懒加载（构造函数会碰注册表，
+类加载期构造会抛 `Not bootstrapped`）。
+
+### 9.2 未移植（下一阶段）
+1. **垂直下挖进入**：上游按密室方块（陶瓦标记）找入口并逐层挖下去（`TreasureScanner` + `interaction/BlockBreaker`）；
+2. **清怪与刷怪笼规避**：`KillHelper` + `SpawnerAvoider`（旋风人刷怪笼 14 格内必放弃）；
+3. **开宝库**：试炼钥匙开宝库、验证是否开启（`VaultStore`）、失败重试；
+4. **就地补给**：`SupplyPack`（潜影盒取图腾/钥匙/食物、放盒、收盒、经验瓶修鞘翅）；
+5. **断点续跑**：`ProgressStore` / `VaultStore` / `SeedStore`（已访问密室、已开宝库）；
+6. **执行日志**：`AutoVaultLogFile`（`游戏目录/fuyi/autovault_*.log`）。
+
+这几块都依赖容器点击时序与 Baritone 过程控制，需要单独一轮实现 + 游戏内验证。

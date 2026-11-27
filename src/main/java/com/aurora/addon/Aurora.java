@@ -19,6 +19,7 @@ import com.aurora.addon.modules.other.AutoLogin;
 import com.aurora.addon.modules.other.BetterDirection;
 import com.aurora.addon.modules.other.ChatGuard;
 import com.aurora.addon.modules.production.AfkAssist;
+import com.aurora.addon.modules.production.AutoVault;
 import com.aurora.addon.modules.production.RaidAssist;
 import com.aurora.addon.utils.BreakTracker;
 import com.aurora.addon.utils.LoginAccounts;
@@ -47,7 +48,7 @@ import java.util.function.Supplier;
 public final class Aurora extends EvernightAddon {
     public static final String ID = "aurora";
 
-    private static final int EXPECTED_MODULES = 19;
+    private static final int EXPECTED_MODULES = 20;
 
     private int registered;
 
@@ -95,6 +96,7 @@ public final class Aurora extends EvernightAddon {
         // Production
         registerSafely(context, () -> new AfkAssist(production));
         registerSafely(context, () -> new RaidAssist(production));
+        registerSafely(context, () -> new AutoVault(production));
 
         // Other
         registerSafely(context, () -> new BetterDirection(other));
