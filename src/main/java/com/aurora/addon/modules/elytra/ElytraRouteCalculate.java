@@ -435,6 +435,7 @@ public final class ElytraRouteCalculate extends AuroraModule {
             } else {
                BPos elytraPos = null;
                boolean hasShip = false;
+               boolean generationFailed = false;
 
                try {
                   gen.generate(terrain, cp.getX(), cp.getZ(), rand);
@@ -449,11 +450,14 @@ public final class ElytraRouteCalculate extends AuroraModule {
                   }
 
                   gen.reset();
-               } catch (Exception var28) {
+               } catch (Exception generationError) {
+                  // 结构生成失败（版本/地形数据异常）时不能当成「这里没船」直接丢弃，
+                  // 否则一次失败就会让整片区域看起来「一艘船都没有」。保留城市，交给玩家自己看。
+                  generationFailed = true;
                   gen.reset();
                }
 
-               if (requireShip && !hasShip) {
+               if (requireShip && !hasShip && !generationFailed) {
                   return null;
                } else {
                   int y = terrain.getHeightInGround(bx, bz);

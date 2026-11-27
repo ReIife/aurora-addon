@@ -48,7 +48,7 @@ import net.minecraft.world.phys.AABB;
  *
  * <p>移植自 Meteor 插件的 {@code EndShipFinder}，聚类、朝向投票、落盘格式逐行保留。三处适配：
  * <ul>
- *     <li>{@code Utils.chunks()} → 按渲染距离遍历已加载区块（{@code getChunk(..., false)} 不会触发加载）。</li>
+ *     <li>{@code Utils.chunks()} → 按渲染距离轮转扫描已加载区块（不触发加载，也不要求 FULL 状态）。</li>
  *     <li>{@code Render3DEvent} → {@link WorldRenderEvent.Main}。</li>
  *     <li>TODO(port): Meteor 的 {@code BlockUpdateEvent} 带 pos / oldState / newState，Evernight 的
  *     {@link BlockUpdateAppliedEvent} 没有任何字段，无法定位被改的方块。这里退化为「标记需要重扫」，
@@ -67,6 +67,12 @@ public final class EndShipFinder extends AuroraModule {
     private boolean needsChainUpdate;
     private boolean needsChunkRescan;
     private int ticksSinceLastReport;
+
+    /** 轮转扫描游标：每 tick 只扫少量区块，保证新加载的区块迟早会被扫到。 */
+    private static final int CHUNKS_PER_TICK = 8;
+    private int cursorX;
+    private int cursorZ;
+    private int cursorRadius = -1;
 
     public EndShipFinder(ModuleCategory category) {
         super("EndShipFinder", "Scans loaded chunks for ladder chains and saves their lock points.", category);
@@ -113,7 +119,7 @@ public final class EndShipFinder extends AuroraModule {
         int centerZ = this.mc.player.getBlockZ() >> 4;
         for (int cx = centerX - viewDistance; cx <= centerX + viewDistance; cx++) {
             for (int cz = centerZ - viewDistance; cz <= centerZ + viewDistance; cz++) {
-                LevelChunk chunk = this.mc.level.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false);
+                LevelChunk chunk = this.chunkAt(cx, cz);
                 if (chunk != null) {
                     this.searchChunk(chunk);
                 }
@@ -121,15 +127,56 @@ public final class EndShipFinder extends AuroraModule {
         }
     }
 
-    /** 方块更新事件没有坐标，只能在玩家附近重扫；见类注释里的 TODO(port)。 */
-    private void rescanNearbyChunks() {
+    /**
+     * 取已加载区块，**不要求 FULL 状态**。
+     *
+     * <p>原实现只查 {@code ChunkStatus.FULL}：滑翔时周围区块常常只到 FEATURES/LIGHT，
+     * 查询返回 null，于是「未完全加载的区块里明明有末地船却扫不到」。这里先取客户端区块缓存里
+     * 任意状态的区块（{@code getChunkNow}），拿不到再退回 FULL 查询。
+     */
+    private LevelChunk chunkAt(int cx, int cz) {
+        LevelChunk chunk = this.mc.level.getChunkSource().getChunkNow(cx, cz);
+        if (chunk != null) {
+            return chunk;
+        }
+        return this.mc.level.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false);
+    }
+
+    /**
+     * 轮转扫描：每 tick 扫 {@link #CHUNKS_PER_TICK} 个区块，游标在渲染距离内循环推进。
+     *
+     * <p>替代原来的「方块更新后只重扫玩家周围 3×3」：船在 3×3 之外的区块加载时永远扫不到。
+     * 游标覆盖整个渲染距离，任意区块最迟在 {@code (2r+1)^2 / CHUNKS_PER_TICK} tick 内被扫到
+     * （渲染距离 12 时约 40 秒），单 tick 成本恒定。
+     */
+    private void rotateScan() {
+        int radius = this.mc.options.renderDistance().get() + 1;
         int centerX = this.mc.player.getBlockX() >> 4;
         int centerZ = this.mc.player.getBlockZ() >> 4;
-        for (int cx = centerX - 1; cx <= centerX + 1; cx++) {
-            for (int cz = centerZ - 1; cz <= centerZ + 1; cz++) {
-                LevelChunk chunk = this.mc.level.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false);
-                if (chunk != null) {
-                    this.searchChunk(chunk);
+        int span = radius * 2 + 1;
+
+        if (this.cursorRadius != radius) {
+            this.cursorRadius = radius;
+            this.cursorX = centerX - radius;
+            this.cursorZ = centerZ - radius;
+        } else {
+            int offsetX = Math.floorMod(this.cursorX - (centerX - radius), span);
+            int offsetZ = Math.floorMod(this.cursorZ - (centerZ - radius), span);
+            this.cursorX = centerX - radius + offsetX;
+            this.cursorZ = centerZ - radius + offsetZ;
+        }
+
+        for (int i = 0; i < CHUNKS_PER_TICK; i++) {
+            LevelChunk chunk = this.chunkAt(this.cursorX, this.cursorZ);
+            if (chunk != null) {
+                this.searchChunk(chunk);
+            }
+            this.cursorX++;
+            if (this.cursorX > centerX + radius) {
+                this.cursorX = centerX - radius;
+                this.cursorZ++;
+                if (this.cursorZ > centerZ + radius) {
+                    this.cursorZ = centerZ - radius;
                 }
             }
         }
@@ -244,6 +291,8 @@ public final class EndShipFinder extends AuroraModule {
             this.needsChainUpdate = true;
         }
 
+        this.rotateScan();
+
         this.ticksSinceLastReport++;
         if (this.ticksSinceLastReport < 20) {
             return;
@@ -251,7 +300,6 @@ public final class EndShipFinder extends AuroraModule {
         this.ticksSinceLastReport = 0;
         if (this.needsChunkRescan) {
             this.needsChunkRescan = false;
-            this.rescanNearbyChunks();
             this.needsChainUpdate = true;
         }
         if (this.needsChainUpdate) {

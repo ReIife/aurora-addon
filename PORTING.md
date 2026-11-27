@@ -361,3 +361,46 @@ Gradle 走它拉取 Loom 插件时全部失败，报错是 `Plugin ... was not f
 | `Renderer3D` + `ShapeMode` | `WorldBoxRenderer` + `RenderMode` |
 | `PacketEvent.Send` / `TickEvent.Pre|Post` | 本体同名事件 / `MinecraftTickEvent` |
 | `excludeDir` 位掩码（跳过贴合面） | **无对应**，统一画整面（仅视觉差异，不影响放置） |
+
+## 12. 修复：找不到「未加载区块」里的末地船（1.8.1）
+
+### 现象
+滑翔经过没加载/没完全加载的区域时，`EndShipFinder` 扫不到末地船；`计算路线` 在个别环境里也可能一艘船都算不出来。
+
+### 根因（两处，都修了）
+
+**1. `EndShipFinder` 只认 `ChunkStatus.FULL`**
+
+```java
+mc.level.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false)   // 未完全加载 → null
+```
+
+滑翔时周围区块经常只到 `FEATURES` / `LIGHT` 状态，`FULL` 查询直接返回 `null`，
+于是「区块明明已经下来了，但里面的末地船扫不到」。现在先取客户端区块缓存里**任意状态**的区块：
+
+```java
+LevelChunk chunk = mc.level.getChunkSource().getChunkNow(cx, cz);
+if (chunk == null) chunk = mc.level.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false);
+```
+
+**2. 方块更新后只重扫玩家周围 3×3 区块**
+
+Evernight 的 `BlockUpdateAppliedEvent` 不带坐标，移植时退化成「更新后重扫 3×3」——
+船在 3×3 之外的区块加载时**永远扫不到**。现在改成**轮转扫描**：
+每 tick 扫 8 个区块，游标在渲染距离内循环推进（渲染距离 12 时全图一轮约 40 秒，
+单 tick 成本恒定），任意新加载区块都会被扫到。
+
+**3. `ElytraRouteCalculate` 把「结构生成抛异常」当成「这里没有船」**
+
+```java
+try { gen.generate(...); hasShip = gen.hasShip(); }
+catch (Exception e) { gen.reset(); }        // hasShip 保持 false
+if (requireShip && !hasShip) return null;   // 整片区域被静默丢弃
+```
+
+一次生成异常就会让整片区域看起来「一艘船都没有」。现在生成失败时**保留城市**
+（`generationFailed` 标记），只有确认「生成成功且确实没船」才丢弃。
+
+### 自检（临时 probe，验完已删）
+种子 `12345`、半径 20000：`cities=16129 spawned=7067 generated=1511 ships=818 elytra=818`，
+耗时 6.5 秒 —— 说明种子数学这条路本身是通的，问题确实出在「区块状态过滤」和「异常吞掉」上。
