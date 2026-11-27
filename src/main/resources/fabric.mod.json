@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "aurora",
+  "version": "${version}",
+  "name": "Aurora",
+  "description": "Aurora addon for Evernight: elytra automation, production helpers and chat utilities ported from the Meteor Client addon of the same name.",
+  "authors": [
+    "n_lzy",
+    "Aurora port contributors"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Evernight-Client/Evernight",
+    "sources": "https://github.com/Evernight-Client/evernight-addon-template"
+  },
+  "license": "GPL-3.0-only",
+  "environment": "client",
+  "entrypoints": {
+    "evernight-addon": [
+      "com.aurora.addon.Aurora"
+    ]
+  },
+  "mixins": [
+    "aurora.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": "*",
+    "evernight": ">=1.0.3"
+  }
+}
