@@ -12,10 +12,16 @@ import com.aurora.addon.modules.elytra.elytracollect.LockStart;
 import com.aurora.addon.modules.elytra.elytracollect.StoreResupply;
 import com.aurora.addon.modules.elytra.elytracollect.StowElytra;
 import com.aurora.addon.modules.elytra.elytracollect.WaypointLock;
+import com.aurora.addon.commands.LoginCommand;
+import com.aurora.addon.modules.combat.BreakESP;
+import com.aurora.addon.modules.combat.PacketMine;
+import com.aurora.addon.modules.other.AutoLogin;
 import com.aurora.addon.modules.other.BetterDirection;
 import com.aurora.addon.modules.other.ChatGuard;
 import com.aurora.addon.modules.production.AfkAssist;
 import com.aurora.addon.modules.production.RaidAssist;
+import com.aurora.addon.utils.BreakTracker;
+import com.aurora.addon.utils.LoginAccounts;
 import evernight.addon.AddonContext;
 import evernight.addon.EvernightAddon;
 import evernight.client.modules.ModuleCategory;
@@ -39,8 +45,21 @@ public final class Aurora extends EvernightAddon {
     @Override
     public void onInitialize(AddonContext context) {
         ModuleCategory elytra = context.registerCategory("Elytra");
+        ModuleCategory combat = context.registerCategory("Combat");
         ModuleCategory production = context.registerCategory("Production");
         ModuleCategory other = context.registerCategory("Other");
+
+        // Combat：发包挖掘 + 挖掘显示（共用同一个挖掘进度跟踪器）
+        BreakTracker breakTracker = new BreakTracker();
+        context.subscribe(breakTracker);
+        context.registerModule(new PacketMine(combat));
+        context.registerModule(new BreakESP(combat, breakTracker));
+
+        // 自动登录：账号表单独存 evernight/aurora-autologin.json，指令管理
+        LoginAccounts loginAccounts = new LoginAccounts();
+        context.registerConfig(loginAccounts);
+        AutoLogin autoLogin = context.registerModule(new AutoLogin(other, loginAccounts));
+        context.registerCommand(new LoginCommand(loginAccounts, autoLogin));
 
         // Elytra：Pitch40 巡航、末地巡航、自动收集（含子模块）
         context.registerModule(new ElytraPitch40(elytra));
@@ -68,6 +87,6 @@ public final class Aurora extends EvernightAddon {
         context.registerModule(new ChatGuard(other));
 
         context.logger().info("Aurora {} initialized: {} modules registered, {} hidden",
-                context.metadata().version(), 16, HiddenModules.count());
+                context.metadata().version(), 19, HiddenModules.count());
     }
 }

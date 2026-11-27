@@ -1,0 +1,25 @@
+Aurora — Evernight addon
+========================
+
+本工程是 Meteor Client 插件 Aurora（作者 n_lzy）的 Evernight 移植版，整体以
+GPL-3.0-only 发布（见 LICENSE）。
+
+部分文件的行为参考了第三方工程，按文件头注明来源：
+
+1. `src/main/java/com/aurora/addon/modules/combat/PacketMine.java`
+   `src/main/java/com/aurora/addon/modules/combat/BreakESP.java`
+   `src/main/java/com/aurora/addon/utils/BreakTracker.java`
+   `src/main/java/com/aurora/addon/modules/other/AutoLogin.java`
+   `src/main/java/com/aurora/addon/utils/LoginAccounts.java`
+
+   行为参考：LeavesHack (https://github.com/MrBZBZ/LeavesHack)，AGPL-3.0，作者 MrBZBZ。
+   这几个文件是**按 Evernight API 重新实现**的（上游是 Meteor API，类名、设置、事件、
+   渲染与持久化接口全部不同），没有逐行复制上游代码；实现思路与对外行为对齐上游。
+
+   关于许可：GPL-3.0 第 13 条允许与 AGPL-3.0 作品组合传播，组合作品中来自 AGPL-3.0
+   的部分仍受 AGPL-3.0 约束（含第 13 条的网络交互条款）。若你需要把上述文件单独抽出
+   再分发，请按 AGPL-3.0 处理并保留 MrBZBZ 的署名。
+
+2. 其余文件为 Aurora（GPL-3.0-only，作者 n_lzy）的移植，行为与上游一致。
+
+插件框架：[Evernight](https://github.com/Evernight-Client/Evernight)（GPL-3.0-only）。

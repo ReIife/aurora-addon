@@ -5,7 +5,8 @@
 
 - 目标：Evernight 1.0.3 · Minecraft 1.21.11 · Fabric Loader 0.20.1 · Java 21
 - 构建：Gradle 9.8 + Loom 1.18.4，**运行 Gradle 需要 JDK 25**，产物 `build/libs/aurora-addon-<version>.jar`
-- 上游许可：GPL-3.0-only（Meteor Client 与 Evernight 同为 GPL-3.0，本工程沿用）
+- 上游许可：GPL-3.0-only（Meteor Client 与 Evernight 同为 GPL-3.0，本工程沿用）；
+  部分文件的行为参考了 AGPL-3.0 的 LeavesHack，逐文件说明见 [`NOTICE`](NOTICE)
 
 ## 构建
 
@@ -39,6 +40,9 @@ python scripts/check-lang.py
 | 挂机辅助 | `AfkAssist` | Production | 已移植 |
 | 袭击辅助 | `RaidAssist` | Production | 已移植 |
 | 方向条显示 | `BetterDirection` | Other | 已移植 |
+| 发包挖掘（LeavesHack `PacketMine`） | `PacketMine` | Combat | 已移植（行为重写） |
+| 挖掘显示（LeavesHack `BreakESP`） | `BreakESP` | Combat | 已移植（行为重写） |
+| 自动登录（LeavesHack `AutoLogin`） | `AutoLogin` | Other | 已移植（账号表改 JSON + 指令管理） |
 | 聊天扩展设置 | `ChatGuard` | Other | 部分移植（去重后的子集） |
 | 计算路线 / 自动铺半砖 / 自动刷附魔书 / 自动装配kit / 聊天栏编辑 / 3C3U伪造 | — | — | 未移植，见 `PORTING.md` §4 |
 | 1.4.1 新增：自动挖矿 / 自动升级工具 / 珍珠机器人 / 战斗占位 | — | — | 未移植，见 `PORTING.md` §4.8、§4.9、§6 |
@@ -68,8 +72,18 @@ src/main/resources/
 - 不在 Java 里写死中文/英文界面文本；不复制 Meteor 的框架（ClickGUI、配置、包管理）。
 - 移植来的行为保留 GPL-3.0 与上游署名：源文件头注明「Port of <类名> from Aurora (GPL-3.0)」。
 
+## 命令
+
+| 命令 | 作用 |
+| --- | --- |
+| `;autologin` / `;al` | 列出已保存的登录信息 |
+| `;al add <密码>` | 为当前服务器 + 当前用户名添加/更新密码（密码在列表里打码显示） |
+| `;al remove [服务器]` | 删除当前服务器（或指定服务器）的登录信息 |
+| `;al clear` | 清空全部登录信息 |
+
 ## 鸣谢
 
 - 上游插件：Aurora（Meteor Client addon），作者 n_lzy
+- 发包挖掘 / 挖掘显示 / 自动登录的行为参考：[LeavesHack](https://github.com/MrBZBZ/LeavesHack)，作者 MrBZBZ（AGPL-3.0）
 - 插件框架与模板：[Evernight](https://github.com/Evernight-Client/Evernight) /
   [evernight-addon-template](https://github.com/Evernight-Client/evernight-addon-template)

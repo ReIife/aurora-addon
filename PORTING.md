@@ -203,3 +203,39 @@
 | 新增 `combat/KillAura`、`CrystalAura`、`LogPointNotifier` | **未移植**：三者是 10 行的空壳占位类（无任何逻辑），且 KillAura/CrystalAura 与本体 `Aura`/`AutoCrystal` 重名同功能 |
 | 新增 `production/AutoMine`（923 行）+ `automine/*`（约 1600 行） | **未移植**，见 §4.8 |
 | 新增 `production/AutoUpgradeTools`（258 行）、`PearlBot`（738 行） | **未移植**，见 §4.9 |
+
+## 7. 从 LeavesHack 补充的三个功能（1.5.0）
+
+上游来源：[LeavesHack](https://github.com/MrBZBZ/LeavesHack)（AGPL-3.0，作者 MrBZBZ），
+按 Evernight API 重新实现，逐文件许可说明见 `NOTICE`。
+
+| LeavesHack | 本工程 | 分类 | 说明 |
+| --- | --- | --- | --- |
+| `modules/PacketMine.java`（781 行） | `modules/combat/PacketMine` | Combat | 发包挖掘 |
+| `modules/BreakESP.java` + `manager/BreakManager.java` | `modules/combat/BreakESP` + `utils/BreakTracker` | Combat | 挖掘显示 |
+| `modules/AutoLogin.java` + `modules/autoLogin/*` | `modules/other/AutoLogin` + `utils/LoginAccounts` + `commands/LoginCommand` | Other | 自动登录 |
+
+### 7.1 `PacketMine`（发包挖掘）
+保留的核心流程：拦截 `startDestroyBlock`（`MultiPlayerGameModeStartDestroyBlockEvent` 可取消）→
+首 tick 发 `START_DESTROY_BLOCK`（含 `FastBypass` 的 y=-999 绕过包）→ 按地面/滞空不同速率累积进度 →
+达到 `破坏耗时 × Damage` 后发 `STOP_DESTROY_BLOCK` → 按 `TryBreakTime` 重试 → `SwitchTime` 后切回原槽。
+破坏耗时复用 `BreakTracker.breakTimeMs`（最优工具 + 效率附魔）。
+
+未移植（代码内 `TODO(port)`）：
+- 「优先重生锚 / 优先蜘蛛网」联动：依赖上游的 `AutoAnchor` / `AutoWeb` 模块，本工程没有；
+- 双挖（第二个目标）：`BreakESP` 仍会显示**其他玩家**的双挖；
+- 进度动画指数 `AnimationExponent`。
+
+### 7.2 `BreakESP`（挖掘显示）
+`BreakTracker` 把服务端 `ClientboundBlockDestructionPacket` 按挖掘者实体归并成主挖 / 副挖两条进度，
+只统计 8 格内的包，超时未断记 `Failed`、方块变空气记 `Broke`。渲染改用
+`WorldRenderEvent.Main` + `WorldBoxRenderer` + `RenderUtils#drawWorldText`，好友配色走
+`SocialRegistry`。原版的 `detectDouble` / 超时系数已内置（未暴露为设置）。
+
+### 7.3 `AutoLogin`（自动登录）
+账号表存 `evernight/aurora-autologin.json`（`LoginAccounts implements JsonConfigurable`）；
+连服时按「当前用户名 + 规范化后的服务器地址」匹配，进世界后第一 tick 用
+`ChatUtils.sendChatOrCommand` 发 `/<登录指令> <密码>`；`PacketEvent.Send` 里拦截
+`ServerboundChatCommandPacket`，把 `/l`、`/reg`、`/cp` 里的密码自动存下。
+上游用模块内嵌的 Meteor GUI 表格管理账号，Evernight 没有等价接口，改为 `;autologin`
+（`;al`）指令：`list` / `add <密码>` / `remove [服务器]` / `clear`，列表里密码打码。
