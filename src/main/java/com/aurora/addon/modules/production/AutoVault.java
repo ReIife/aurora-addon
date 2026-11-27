@@ -63,6 +63,9 @@ public final class AutoVault extends AuroraModule {
     private final List<BlockPos> targets = new ArrayList<>();
 
     private BlockPos searchOrigin;
+    /** 上一次搜索用的种子与位置：同样条件已搜过且没结果时不要每秒重试（否则聊天栏刷屏）。 */
+    private long lastSearchedSeed;
+    private BlockPos lastSearchedOrigin;
     private int index;
     private boolean seedWarned;
     private boolean pathRequested;
@@ -109,7 +112,7 @@ public final class AutoVault extends AuroraModule {
         this.seedWarned = false;
 
         BlockPos playerPos = mc.player.blockPosition();
-        if (this.needsSearch(playerPos)) {
+        if (this.needsSearch(playerPos, parsedSeed)) {
             this.search(playerPos, parsedSeed);
         }
 
@@ -140,14 +143,22 @@ public final class AutoVault extends AuroraModule {
         }
     }
 
-    private boolean needsSearch(BlockPos playerPos) {
+    private boolean needsSearch(BlockPos playerPos, long seed) {
+        int radius = this.searchRadius.getValue();
+        double radiusSq = (double) radius * radius;
+
         if (this.targets.isEmpty()) {
+            // 同一颗种子、同一个位置已经搜过且没结果 → 不重复搜索，避免每秒一条「未找到」
+            if (this.lastSearchedSeed == seed && this.lastSearchedOrigin != null
+                    && this.lastSearchedOrigin.distSqr(playerPos) < radiusSq) {
+                return false;
+            }
             return true;
         }
         if (this.searchOrigin == null) {
             return true;
         }
-        return this.searchOrigin.distSqr(playerPos) > (double) this.searchRadius.getValue() * this.searchRadius.getValue();
+        return this.searchOrigin.distSqr(playerPos) > radiusSq;
     }
 
     private void search(BlockPos origin, long seed) {
@@ -158,6 +169,8 @@ public final class AutoVault extends AuroraModule {
         this.lastSearchMs = now;
 
         this.searchOrigin = origin;
+        this.lastSearchedSeed = seed;
+        this.lastSearchedOrigin = origin;
         this.index = 0;
         this.cancelPath();
 
@@ -223,6 +236,8 @@ public final class AutoVault extends AuroraModule {
         this.index = 0;
         this.searchOrigin = null;
         this.pathRequested = false;
+        this.lastSearchedSeed = 0L;
+        this.lastSearchedOrigin = null;
     }
 
     @EventHandler

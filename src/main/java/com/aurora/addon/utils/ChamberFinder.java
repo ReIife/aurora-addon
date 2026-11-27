@@ -48,7 +48,7 @@ public final class ChamberFinder {
      */
     private static RandomSpreadStructurePlacement placement;
 
-    private static RandomSpreadStructurePlacement placement() {
+    private static synchronized RandomSpreadStructurePlacement placement() {
         if (placement == null) {
             placement = new RandomSpreadStructurePlacement(SPACING, SEPARATION, SPREAD, SALT);
         }

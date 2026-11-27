@@ -404,3 +404,24 @@ if (requireShip && !hasShip) return null;   // 整片区域被静默丢弃
 ### 自检（临时 probe，验完已删）
 种子 `12345`、半径 20000：`cities=16129 spawned=7067 generated=1511 ships=818 elytra=818`，
 耗时 6.5 秒 —— 说明种子数学这条路本身是通的，问题确实出在「区块状态过滤」和「异常吞掉」上。
+
+## 13. 自查（1.8.2）：修掉的 8 个问题
+
+逐模块过了一遍，按「会不会被玩家看见 / 会不会崩」排序：
+
+| # | 位置 | 问题 | 后果 | 修复 |
+| --- | --- | --- | --- | --- |
+| 1 | `ElytraCollect#info/error` | 用了 `Translations.format`，它会固定补 `evernight.ui.` 前缀 | **所有**自动收集相关提示都显示成 `evernight.ui.addons.aurora.messages...` | 改 `Translations.get` + `String.format` |
+| 2 | `ElytraRouteCalculate#foundCities` | 普通 `ArrayList`，搜索线程 add/clear、渲染线程遍历 | 搜索时 `ConcurrentModificationException`，渲染线程抛异常 | 改 `CopyOnWriteArrayList` |
+| 3 | `AuroraModule#print` | 后台线程直接调 `ChatUtils.printChat` | 聊天栏非线程安全，搜索线程打日志可能崩 | 非主线程走 `mc.execute(...)` |
+| 4 | `EndShipFinder#searchChunk` | 逐方块扫 `minY..高度图`（单区块约 10 万次查询），且依赖 `WORLD_SURFACE` 高度图 | 我上一版改成每 tick 扫区块后变成**持续掉帧**；未完全加载的区块高度图未生成 → 上界为 0 → 漏扫 | 改为按 section 扫描，`hasOnlyAir()` 直接跳过；不再依赖高度图；每 tick 预算 4 个区块 |
+| 5 | `AutoVault` | 搜索失败后 `targets` 为空 → 每秒重搜一次 | 聊天栏每秒一条「未找到试炼密室」刷屏 | 记住「种子 + 位置」，同条件不重复搜 |
+| 6 | `PacketMine` | 目标因过远/超次数被清掉时没恢复静默切换的槽位 | 客户端与服务端选中格不同步（本地显示 A，服务端认为 B） | 清目标时 `restoreSlot()` |
+| 7 | `ChamberFinder` 懒加载 | `placement()` 非同步 | 极端情况下并发构造两份 placement | 加 `synchronized` |
+| 8 | `ElytraRouteCalculate#loadedWorld` | 搜索线程里调 `detectWorld()`（读 `mc.getCurrentServer()`） | 后台线程碰主线程状态 | 字段改 `volatile`，后台只读缓存 |
+
+### 检查方式
+- 事件处理器签名扫描：全部 `void`、单参数（`EventBus` 只收这种，写错会静默不触发）；
+- 残留物扫描：`class_*` 中介名、`new Object[0]`、`Setting#get()` 误用、`==` 比较字符串 —— 0 命中；
+- `check-lang`（424 键）/ `check-registration`（3 分类 / 22 模块）双 0 error；
+- 空 `catch` 26 处：均在机械移植的 `ElytraRouteCalculate` / `AutoCircleSlab` 里，与上游行为一致（结构生成那处已单独加了 `generationFailed` 标记）。

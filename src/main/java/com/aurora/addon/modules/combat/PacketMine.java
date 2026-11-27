@@ -156,6 +156,7 @@ public final class PacketMine extends AuroraModule {
 
         if (this.isFar(this.target)) {
             this.target = null;
+            this.restoreSlot();
             return;
         }
 
@@ -258,6 +259,7 @@ public final class PacketMine extends AuroraModule {
         if (this.breakAttempts > this.tryBreakTime.getValue() * 10) {
             this.breakAttempts = 0;
             this.target = null;
+            this.restoreSlot();
         } else if (!this.instantMine.getValue()) {
             // 还没断就再发一轮 START，等下一个进度周期
             this.started = false;

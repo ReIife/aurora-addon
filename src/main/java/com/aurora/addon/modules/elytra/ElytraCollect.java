@@ -335,9 +335,23 @@ public final class ElytraCollect extends AuroraModule {
 
     // ------------------------------------------------------------------ 日志
 
+    /** 查表 + 填参；查不到时退回键名本身。 */
+    private static String translateText(String key, Object... args) {
+        String pattern = Translations.get(key);
+        if (args == null || args.length == 0) {
+            return pattern;
+        }
+        try {
+            return String.format(java.util.Locale.ROOT, pattern, args);
+        } catch (RuntimeException invalidPattern) {
+            return pattern;
+        }
+    }
+
     @Override
     public void info(String key, Object... args) {
-        String message = Translations.format(this.translationKey(key), args);
+        // 不能用 Translations.format：它固定补 evernight.ui. 前缀，插件的 addons.aurora.* 查不到
+        String message = translateText(this.translationKey(key), args);
         if (this.logInfo.getValue()) {
             System.out.println("[ElytraCollect][INFO] " + message);
         }
@@ -348,7 +362,7 @@ public final class ElytraCollect extends AuroraModule {
 
     @Override
     public void error(String key, Object... args) {
-        String message = Translations.format(this.translationKey(key), args);
+        String message = translateText(this.translationKey(key), args);
         if (this.logError.getValue()) {
             System.out.println("[ElytraCollect][ERROR] " + message);
         }

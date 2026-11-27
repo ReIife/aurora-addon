@@ -57,6 +57,12 @@ public abstract class AuroraModule extends AddonModule {
     }
 
     private void print(String key, Object... args) {
-        ChatUtils.printChat(Component.literal(this.translate(key, args)), ChatUtils.moduleSignature(this));
+        String text = this.translate(key, args);
+        // 聊天栏不是线程安全的：后台线程（例如计算路线的搜索线程）打日志要切回主线程
+        if (mc.isSameThread()) {
+            ChatUtils.printChat(Component.literal(text), ChatUtils.moduleSignature(this));
+        } else {
+            mc.execute(() -> ChatUtils.printChat(Component.literal(text), ChatUtils.moduleSignature(this)));
+        }
     }
 }

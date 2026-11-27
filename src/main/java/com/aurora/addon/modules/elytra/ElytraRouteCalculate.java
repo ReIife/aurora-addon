@@ -117,15 +117,16 @@ public final class ElytraRouteCalculate extends AuroraModule {
 
    private final Set<Long> visitedXZ = new HashSet<>();
    private List<Vec3> route = Collections.emptyList();
-   private String loadedWorld = null;
+   private volatile String loadedWorld = null;
    private ElytraRouteCalculate.Algorithm activeAlgorithm = null;
    private boolean visitedFileExisted;
-   private final List<ElytraRouteCalculate.FoundCity> foundCities = new ArrayList<>();
+   /** 后台搜索线程写、渲染线程读，必须用写时复制列表，否则会 ConcurrentModificationException。 */
+   private final List<ElytraRouteCalculate.FoundCity> foundCities = new java.util.concurrent.CopyOnWriteArrayList<>();
    private volatile int searchTotal = 0;
    private volatile int searchProgress = 0;
    private volatile boolean searching = false;
    private volatile boolean cancelSearch = false;
-   private String lastError;
+   private volatile String lastError;
    private final AtomicInteger searchSession = new AtomicInteger();
 
    public List<Vec3> getRoute() {
@@ -979,7 +980,7 @@ public final class ElytraRouteCalculate extends AuroraModule {
 
    private void saveVisited() {
       if (!this.visitedXZ.isEmpty()) {
-         String world = this.loadedWorld != null ? this.loadedWorld : this.detectWorld();
+         String world = this.loadedWorld;   // 后台线程只读缓存，不直接碰 Minecraft 状态
          if (world != null) {
             Path f = LUJD_DIR.resolve(world).resolve("visited.json");
             if (this.visitedFileExisted && !Files.isRegularFile(f)) {
@@ -1052,7 +1053,7 @@ public final class ElytraRouteCalculate extends AuroraModule {
 
    private void saveRoute() {
       if (this.route != null) {
-         String world = this.loadedWorld != null ? this.loadedWorld : this.detectWorld();
+         String world = this.loadedWorld;   // 后台线程只读缓存，不直接碰 Minecraft 状态
          if (world != null) {
             Path f = LUJD_DIR.resolve(world).resolve("route.json");
 

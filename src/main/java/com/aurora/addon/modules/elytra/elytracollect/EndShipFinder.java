@@ -37,6 +37,7 @@ import net.minecraft.world.level.block.LadderBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -69,7 +70,7 @@ public final class EndShipFinder extends AuroraModule {
     private int ticksSinceLastReport;
 
     /** 轮转扫描游标：每 tick 只扫少量区块，保证新加载的区块迟早会被扫到。 */
-    private static final int CHUNKS_PER_TICK = 8;
+    private static final int CHUNKS_PER_TICK = 4;
     private int cursorX;
     private int cursorZ;
     private int cursorRadius = -1;
@@ -224,20 +225,30 @@ public final class EndShipFinder extends AuroraModule {
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         int startX = chunk.getPos().getMinBlockX();
         int startZ = chunk.getPos().getMinBlockZ();
-        int endX = chunk.getPos().getMaxBlockX();
-        int endZ = chunk.getPos().getMaxBlockZ();
-        Heightmap surface = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.WORLD_SURFACE);
 
-        for (int x = startX; x <= endX; x++) {
-            for (int z = startZ; z <= endZ; z++) {
-                int surfaceY = surface.getFirstAvailable(x - startX, z - startZ);
-                for (int y = this.mc.level.getMinY(); y <= surfaceY; y++) {
-                    mutable.set(x, y, z);
-                    BlockState state = chunk.getBlockState(mutable);
-                    if (state.getBlock() == Blocks.LADDER) {
-                        BlockPos pos = mutable.immutable();
-                        found.add(pos);
-                        foundFacing.put(pos, state.getValue(LadderBlock.FACING));
+        // 按「非空 section」逐层扫描：
+        // 1) 末地绝大多数 section 是纯空气，hasOnlyAir() 直接跳过，单区块成本从约 10 万次
+        //    方块查询降到几千次；
+        // 2) 不依赖 WORLD_SURFACE 高度图——未完全加载的区块高度图可能还没生成，
+        //    用它当上界会漏扫（「未加载区块扫不到船」也有这一层原因）。
+        LevelChunkSection[] sections = chunk.getSections();
+        int minSectionY = this.mc.level.getMinSectionY();
+        for (int index = 0; index < sections.length; index++) {
+            LevelChunkSection section = sections[index];
+            if (section == null || section.hasOnlyAir()) {
+                continue;
+            }
+            int baseY = (minSectionY + index) << 4;
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
+                        mutable.set(startX + x, baseY + y, startZ + z);
+                        BlockState state = chunk.getBlockState(mutable);
+                        if (state.getBlock() == Blocks.LADDER) {
+                            BlockPos pos = mutable.immutable();
+                            found.add(pos);
+                            foundFacing.put(pos, state.getValue(LadderBlock.FACING));
+                        }
                     }
                 }
             }
