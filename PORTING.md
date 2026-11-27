@@ -239,3 +239,46 @@
 `ServerboundChatCommandPacket`，把 `/l`、`/reg`、`/cp` 里的密码自动存下。
 上游用模块内嵌的 Meteor GUI 表格管理账号，Evernight 没有等价接口，改为 `;autologin`
 （`;al`）指令：`list` / `add <密码>` / `remove [服务器]` / `clear`，列表里密码打码。
+
+## 8. 事故复盘：1.5.0「进游戏一个功能都看不到」
+
+### 现象
+装到 Evernight 1.2.4 上，ClickGUI 里没有任何 Aurora 分类/模块，`;addons` 也看不到。
+
+### 根因
+`Aurora.onInitialize` 里自建了一个名为 **`Combat`** 的分类：
+
+```java
+ModuleCategory combat = context.registerCategory("Combat");   // ← 与本体内置分类重名
+```
+
+Evernight 1.0.3 的 `ModuleCategory.register` 不校验重名（会静默多出一个同名面板），
+**1.2.4 起改为抛异常**：
+
+```
+java.lang.IllegalStateException: Module category is already registered: Combat
+    at evernight.client.modules.ModuleCategory.register(ModuleCategory.java:116)
+    at evernight.addon.AddonContext.registerCategory(AddonContext.java:142)
+    at com.aurora.addon.Aurora.onInitialize(Aurora.java:48)
+```
+
+`onInitialize` 里未捕获的异常会让 `AddonManager` 直接中止该插件的初始化，
+**异常点之后的所有注册（模块、指令、配置）全部不执行**——于是「整个插件都不见了」。
+
+同一份日志里还有第二个独立问题：本工程按 Evernight **1.0.3** 编译，而玩家实际跑的是 **1.2.4**，
+开发目标与运行环境不一致，导致这类版本相关行为在开发期完全暴露不出来。
+
+### 修复
+1. 战斗相关模块改用本体内置的 `ModuleCategory.COMBAT`，不再自建同名分类；
+2. **开发目标改为 Evernight 1.2.4**（`evernight_version=1.2.4`、`fabric.mod.json` 的
+   `depends.evernight >= 1.2.4`），并把 Loom 升到 **1.19.4**（1.2.4 的 jar manifest 声明
+   `Fabric-Loom-Version: 1.19.3`，Loom 1.18.4 会拒绝加载）；
+3. 注册流程改为**失败隔离**：`registerSafely` / `registerCategory(..., fallback)` 把单个模块或
+   分类的失败降级为一条警告，任何一个名字被占用都不再拖垮整个插件；
+4. 新增 `scripts/check-registration.py` 并接入 CI：静态拦截「分类名撞内置分类」「分类/模块名重复」
+   「模块缺中英文语言键」三类问题。
+
+### 排查过程中的另一个坑（与本次事故无关，但会让人误判）
+`~/.gradle/gradle.properties` 里残留了一个已经失效的本机代理（`127.0.0.1:53106`），
+Gradle 走它拉取 Loom 插件时全部失败，报错是 `Plugin ... was not found`（看不出是网络问题）。
+删掉代理配置后 Loom 1.19.4 一次解析成功。**遇到「插件坐标明明存在却 not found」先查代理。**

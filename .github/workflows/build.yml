@@ -25,6 +25,9 @@ jobs:
       - name: Validate language tables
         run: python3 scripts/check-lang.py
 
+      - name: Validate registration (categories / modules / lang keys)
+        run: python3 scripts/check-registration.py
+
       - name: Build
         run: |
           chmod +x gradlew

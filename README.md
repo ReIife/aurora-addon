@@ -3,8 +3,8 @@
 把 Meteor Client 版 **Aurora**（`aurora-1.21.11-1.4.1.jar`，作者 n_lzy）移植到
 [Evernight](https://github.com/Evernight-Client/Evernight) 插件体系的工程。
 
-- 目标：Evernight 1.0.3 · Minecraft 1.21.11 · Fabric Loader 0.20.1 · Java 21
-- 构建：Gradle 9.8 + Loom 1.18.4，**运行 Gradle 需要 JDK 25**，产物 `build/libs/aurora-addon-<version>.jar`
+- 目标：**Evernight 1.2.4** · Minecraft 1.21.11 · Fabric Loader 0.20.1 · Java 21
+- 构建：Gradle 9.8 + **Loom 1.19.4**（Evernight 1.2.4 的 jar 要求 Loom ≥ 1.19.3），**运行 Gradle 需要 JDK 25**，产物 `build/libs/aurora-addon-<version>.jar`
 - 上游许可：GPL-3.0-only（Meteor Client 与 Evernight 同为 GPL-3.0，本工程沿用）；
   部分文件的行为参考了 AGPL-3.0 的 LeavesHack，逐文件说明见 [`NOTICE`](NOTICE)
 
@@ -17,6 +17,8 @@ gradlew.bat build
 
 # 语言表校验（键集/前缀）
 python scripts/check-lang.py
+# 注册表校验（分类名/模块名/语言键），CI 也会跑
+python scripts/check-registration.py
 ```
 
 首次构建会把 Evernight 发行 jar 下载到 `libs/evernight-1.0.3.jar`（也可手动放入）。
