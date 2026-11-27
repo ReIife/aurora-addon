@@ -53,6 +53,9 @@ dependencies {
 
     // Loom 负责把发行 jar 从 intermediary 重映射到 named。
     modImplementation files(evernightJarFile)
+
+    // seedfinding：计算末地城/末地船路线的数学库（随插件打包到 META-INF/jars）
+    compileOnly fileTree(dir: 'libs/seedfinding', include: ['*.jar'])
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -62,6 +65,11 @@ tasks.withType(JavaCompile).configureEach {
 
 processResources {
     inputs.property 'version', project.version
+    // 把 seedfinding 依赖塞进 jar 的 META-INF/jars，fabric.mod.json 的 jars 会加载它们
+    from('libs/seedfinding') {
+        include '*.jar'
+        into 'META-INF/jars'
+    }
     filesMatching('fabric.mod.json') {
         expand version: project.version
     }

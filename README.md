@@ -46,8 +46,9 @@ python scripts/check-registration.py
 | 挖掘显示（LeavesHack `BreakESP`） | `BreakESP` | Combat | 已移植（行为重写） |
 | 自动登录（LeavesHack `AutoLogin`） | `AutoLogin` | Other | 已移植（账号表改 JSON + 指令管理） |
 | 自动宝库（Fuyi `AutoVault`） | `AutoVault` | Production | **第一阶段**：按种子定位试炼密室 + 标记 + Baritone 导航（下挖/开宝库/补给未移植，见 `PORTING.md` §9） |
+| 计算路线 | `ElytraRouteCalculate` | Elytra | 已移植（seedfinding 依赖随插件打包，36 项设置） |
 | 聊天扩展设置 | `ChatGuard` | Other | 部分移植（去重后的子集） |
-| 计算路线 / 自动铺半砖 / 自动刷附魔书 / 自动装配kit / 聊天栏编辑 / 3C3U伪造 | — | — | 未移植，见 `PORTING.md` §4 |
+| 自动铺半砖 / 自动刷附魔书 / 自动装配kit / 聊天栏编辑 / 3C3U伪造 | — | — | 未移植，见 `PORTING.md` §4 |
 | 1.4.1 新增：自动挖矿 / 自动升级工具 / 珍珠机器人 / 战斗占位 | — | — | 未移植，见 `PORTING.md` §4.8、§4.9、§6 |
 
 详细的逐模块说明、与原版的差异、以及未移植部分的缺口，见 **[`PORTING.md`](PORTING.md)**。

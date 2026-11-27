@@ -5,6 +5,7 @@ import com.aurora.addon.modules.combat.BreakESP;
 import com.aurora.addon.modules.combat.PacketMine;
 import com.aurora.addon.modules.elytra.ElytraCollect;
 import com.aurora.addon.modules.elytra.ElytraPitch40;
+import com.aurora.addon.modules.elytra.ElytraRouteCalculate;
 import com.aurora.addon.modules.elytra.ElytraTravel;
 import com.aurora.addon.modules.elytra.elytracollect.AutoRestart;
 import com.aurora.addon.modules.elytra.elytracollect.CollectRun;
@@ -48,7 +49,7 @@ import java.util.function.Supplier;
 public final class Aurora extends EvernightAddon {
     public static final String ID = "aurora";
 
-    private static final int EXPECTED_MODULES = 20;
+    private static final int EXPECTED_MODULES = 21;
 
     private int registered;
 
@@ -80,6 +81,7 @@ public final class Aurora extends EvernightAddon {
         registerSafely(context, () -> new ElytraPitch40(elytra));
         registerSafely(context, () -> new ElytraTravel(elytra));
         registerSafely(context, () -> new ElytraCollect(elytra));
+        registerSafely(context, () -> new ElytraRouteCalculate(elytra));
 
         // 自动收集的子模块：注册（保留功能与配置），但从 ClickGUI 隐藏，与上游
         // Config#hiddenModules 的行为一致。上游隐藏的正是这 9 个，ElytraCollect 本身不隐藏。

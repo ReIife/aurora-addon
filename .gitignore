@@ -16,6 +16,8 @@ run/
 
 # 下载到本地的 Evernight 开发 jar（libs/README.md 仍入库）
 libs/*.jar
+# seedfinding 依赖需要打进插件 jar 的 META-INF/jars，必须入库
+!libs/seedfinding/*.jar
 
 # Logs
 logs/

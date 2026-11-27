@@ -324,3 +324,27 @@ Gradle 走它拉取 Loom 插件时全部失败，报错是 `Plugin ... was not f
 6. **执行日志**：`AutoVaultLogFile`（`游戏目录/fuyi/autovault_*.log`）。
 
 这几块都依赖容器点击时序与 Baritone 过程控制，需要单独一轮实现 + 游戏内验证。
+
+## 10. 计算路线（`ElytraRouteCalculate`）—— 已移植（1.7.0）
+
+「找鞘翅必备」的那一环。上游 1433 行，本次**算法逐行保留**，只替换框架层：
+
+| 上游 | 本工程 |
+| --- | --- |
+| `SettingGroup` 分组 + 36 项设置 | 平铺设置（`add(new XxxSetting(...))`），英文稳定键 |
+| `SettingColor` / `ShapeMode` | `java.awt.Color` / `RenderMode` + `WorldBoxRenderer` |
+| `Render3DEvent#renderer.box(...)` | 本地 `box(...)` 辅助方法（fill/outline 两个调用） |
+| `TickEvent.Post` | `MinecraftTickEvent` |
+| `Modules.get().get(ElytraRouteCalculate.class)`（在 `WaypointLock` 里） | `ClientContext.getModule(ElytraRouteCalculate.class)`，反射已删除 |
+| `META-INF/jars` 里的 7 个 seedfinding jar | 同样打进本插件 jar 的 `META-INF/jars`，并在 `fabric.mod.json` 的 `jars` 里声明 |
+
+**seedfinding 依赖**（`mc_biome / mc_core / mc_feature / mc_math / mc_noise / mc_seed / mc_terrain`，
+约 1 MB）放在 `libs/seedfinding/`，构建时由 `processResources` 拷进 jar 的 `META-INF/jars`。
+`.gitignore` 里对 `libs/*.jar` 做了例外，CI 也能直接构建。
+
+**自检**（临时 `routeProbe`，验完已删）：`MCVersion.fromString("1.21")` → `1.21`；
+种子 `12345` 在 5×5 个 region 内扫到 25 个末地城区块（如 `-37,-37` / `-36,-17` / `-33,5`）；
+`EndBiomeSource` / `EndTerrainGenerator` / `EndCityGenerator` 均可实例化。
+
+**已知差异**：该模块的 22 处运行期提示仍是中文硬编码（未接语言表）。
+其余模块的提示都走 `addons.aurora.*`；这一块单独收尾时再统一抽键。

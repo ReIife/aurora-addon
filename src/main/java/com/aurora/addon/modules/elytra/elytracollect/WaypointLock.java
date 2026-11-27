@@ -1,6 +1,7 @@
 package com.aurora.addon.modules.elytra.elytracollect;
 
 import com.aurora.addon.modules.AuroraModule;
+import com.aurora.addon.modules.elytra.ElytraRouteCalculate;
 import com.aurora.addon.modules.elytra.ElytraCollect;
 import evernight.client.ClientContext;
 import evernight.client.events.core.EventHandler;
@@ -17,16 +18,11 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>移植自 Meteor 插件的 {@code WaypointLock}。
  *
- * <p>TODO(port): 原实现直接 {@code Modules.get().get(ElytraRouteCalculate.class)} 并调用
- * {@code getRoute()}；计算路线模块不在本次鞘翅收集的移植范围里，工程内没有对应类型。这里改为
- * 按模块名 {@code ElytraRouteCalculate} 在注册表里查找，再用反射读 {@code getRoute()}，
- * 这样模块本身可以编译，且等计算路线模块合并进来后无需改代码即可生效；找不到时保持不动。
+ * <p>路线来源是 {@link ElytraRouteCalculate#getRoute()}：与上游一致，直接按类型取模块，
+ * 模块未开启或路线为空时保持视角不动。
  */
 public final class WaypointLock extends AuroraModule {
-    private static final String ROUTE_MODULE_NAME = "ElytraRouteCalculate";
-
     private Vec3 prevTarget;
-    private Method getRouteMethod;
 
     public WaypointLock(ModuleCategory category) {
         super("WaypointLock", "Locks the view to the next waypoint of the calculated route.", category);
@@ -46,30 +42,13 @@ public final class WaypointLock extends AuroraModule {
         this.prevTarget = null;
     }
 
-    private Module routeModule() {
-        if (ClientContext.moduleRegistry == null) {
-            return null;
-        }
-        Module module = ClientContext.moduleRegistry.findFirstOrNull(
-                candidate -> candidate.getName().equalsIgnoreCase(ROUTE_MODULE_NAME));
-        return module != null && module.isToggled() ? module : null;
-    }
-
-    @SuppressWarnings("unchecked")
     private List<Vec3> currentRoute() {
-        Module module = this.routeModule();
-        if (module == null) {
+        ElytraRouteCalculate route = ClientContext.getModule(ElytraRouteCalculate.class);
+        if (route == null || !route.isToggled()) {
             return Collections.emptyList();
         }
-        try {
-            if (this.getRouteMethod == null) {
-                this.getRouteMethod = module.getClass().getMethod("getRoute");
-            }
-            Object route = this.getRouteMethod.invoke(module);
-            return route instanceof List<?> list ? (List<Vec3>) list : Collections.emptyList();
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            return Collections.emptyList();
-        }
+        List<Vec3> points = route.getRoute();
+        return points == null ? Collections.emptyList() : points;
     }
 
     private Float computeYaw() {
