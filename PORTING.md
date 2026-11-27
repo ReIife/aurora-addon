@@ -348,3 +348,16 @@ Gradle 走它拉取 Loom 插件时全部失败，报错是 `Plugin ... was not f
 
 **已知差异**：该模块的 22 处运行期提示仍是中文硬编码（未接语言表）。
 其余模块的提示都走 `addons.aurora.*`；这一块单独收尾时再统一抽键。
+
+## 11. 自动铺半砖（`AutoCircleSlab`）—— 已移植（1.8.0）
+
+上游 944 行。球壳重建、可刷怪方块判定、射线可达性、三种放置模式（`NONE` / `DELAY_MOVEMENT` /
+`MOVEMENT_POST`）、发包队列与旋转还原全部保留。框架层替换：
+
+| 上游 | 本工程 |
+| --- | --- |
+| `BlockPosSetting` | `OriginX` / `OriginY` / `OriginZ` 三个 `NumberSetting` |
+| `BlockListSetting` | `RegistrySetSetting<Block>`（默认 29 种地毯/半砖/铁轨，与上游一致） |
+| `Renderer3D` + `ShapeMode` | `WorldBoxRenderer` + `RenderMode` |
+| `PacketEvent.Send` / `TickEvent.Pre|Post` | 本体同名事件 / `MinecraftTickEvent` |
+| `excludeDir` 位掩码（跳过贴合面） | **无对应**，统一画整面（仅视觉差异，不影响放置） |
