@@ -23,7 +23,7 @@ import net.minecraft.world.level.storage.WorldData;
  * 与 {@link BlacklistUtils#worldKey()} 的键不同，两者不能混用。
  */
 public final class TiziStorage {
-    public static final Path TIZI_DIR = Paths.get("tizi");
+    public static final Path TIZI_DIR = Paths.get("AutoElytra");
 
     private TiziStorage() {
     }

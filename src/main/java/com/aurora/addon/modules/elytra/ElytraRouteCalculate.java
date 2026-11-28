@@ -66,7 +66,8 @@ import net.minecraft.world.phys.Vec3;
  * <p>已知差异：运行期提示文案仍为中文硬编码（22 处），尚未接入语言表，见 PORTING.md §10。
  */
 public final class ElytraRouteCalculate extends AuroraModule {
-    private static final Path LUJD_DIR = Paths.get("lujd");
+    private static final Path LUJD_DIR = Paths.get("AutoElytra");
+   private static final String[] AUX_JSON_FILES = new String[]{"zuobiao.json", "ItemFrame.json"};
 
     private final Setting<Algorithm> algorithm = this.add(new EnumSetting<>("Algorithm", Algorithm.NearestNeighbor));
     private final Setting<Boolean> clearCache = this.add(new BooleanSetting("ClearCache", false));
@@ -137,7 +138,8 @@ public final class ElytraRouteCalculate extends AuroraModule {
         super("ElytraRouteCalculate", "Scans End cities and ships from the seed, orders them into a short route and renders it.", category);
     }
 
-   public void onActivate() {
+   @Override
+   public void onEnable() {
       this.searching = false;
       this.cancelSearch = false;
 
@@ -175,7 +177,8 @@ public final class ElytraRouteCalculate extends AuroraModule {
       );
    }
 
-   public void onDeactivate() {
+   @Override
+   public void onDisable() {
       this.searchSession.incrementAndGet();
       if (this.searching) {
          this.cancelSearch = true;
@@ -509,6 +512,7 @@ public final class ElytraRouteCalculate extends AuroraModule {
                   ),
                   new Object[0]
                );
+               this.clearAuxiliaryJson();
                this.searching = true;
                this.cancelSearch = false;
                this.searchProgress = 0;
@@ -709,7 +713,8 @@ public final class ElytraRouteCalculate extends AuroraModule {
       }
    }
 
-   public String getInfoString() {
+   @Override
+   public String getInfo() {
       if (this.lastError != null) {
          return "err: " + this.lastError;
       } else if (this.searching) {
@@ -975,6 +980,29 @@ public final class ElytraRouteCalculate extends AuroraModule {
          }
 
          return null;
+      }
+   }
+
+   /** 新一轮搜索前把收集组用的坐标文件清空，避免旧坐标干扰（与上游一致）。 */
+   private void clearAuxiliaryJson() {
+      String world = this.loadedWorld != null ? this.loadedWorld : this.detectWorld();
+      if (world == null) {
+         this.info("未检测到世界，跳过清空辅助坐标");
+         return;
+      }
+      int cleared = 0;
+      for (String name : AUX_JSON_FILES) {
+         Path file = LUJD_DIR.resolve(world).resolve(name);
+         try {
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, "[]");
+            cleared++;
+         } catch (IOException failure) {
+            this.error("清空 " + name + " 失败: " + failure.getMessage());
+         }
+      }
+      if (cleared > 0) {
+         this.info("已清空 " + cleared + " 个辅助坐标文件（zuobiao.json / ItemFrame.json）");
       }
    }
 

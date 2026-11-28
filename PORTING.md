@@ -425,3 +425,46 @@ if (requireShip && !hasShip) return null;   // 整片区域被静默丢弃
 - 残留物扫描：`class_*` 中介名、`new Object[0]`、`Setting#get()` 误用、`==` 比较字符串 —— 0 命中；
 - `check-lang`（424 键）/ `check-registration`（3 分类 / 22 模块）双 0 error；
 - 空 `catch` 26 处：均在机械移植的 `ElytraRouteCalculate` / `AutoCircleSlab` 里，与上游行为一致（结构生成那处已单独加了 `generationFailed` 标记）。
+
+## 14. 「计算路线没修好」的真正根因（1.8.3）
+
+### 结论先说：依赖没问题，是生命周期方法根本没被调用
+
+**依赖核对**：`aurora-1.21.11-1.4.0(2).jar` 里 `META-INF/jars` 的 7 个 seedfinding 依赖，与
+`libs/seedfinding/` 下的 7 个文件 **SHA-256 完全一致**（逐个比对过），且都已打进本插件 jar 的
+`META-INF/jars` 并在 `fabric.mod.json` 的 `jars` 里声明。也就是说「依赖没移植对」这个方向可以排除：
+它们不是 `fnseedc`，而是 `com.seedfinding` 的 `mc_core / mc_feature / mc_biome / mc_math /
+mc_noise / mc_seed / mc_terrain`，与上游逐字节相同。
+
+**真正的问题**：`ElytraRouteCalculate` 与 `AutoCircleSlab` 是机械转换过来的，仍然写着 Meteor 的
+生命周期方法名：
+
+```java
+public void onActivate() { ... }    // Meteor 在 toggle 时调用
+public void onDeactivate() { ... }
+```
+
+而 Evernight 的 `Module` 只有 `onEnable()` / `onDisable()` / `onToggle()`——**`onActivate` 不是重写，
+是一个永远不会被调用的普通方法**。于是：
+
+- `ElytraRouteCalculate` 开模块时不会执行 `ensureStateLoaded()`、不会 `detectWorld()`、
+  不会读 `visited.json` / `route.json`，也不会自动探测种子——**表现就是「点了搜索也没反应/没结果」**；
+- `AutoCircleSlab` 开模块时不会重置缓存、不会重建球壳——表现是「开了但什么都不画」。
+
+因为方法签名不冲突，编译器不会报错，静态检查也发现不了，只有对照框架 API 才能看出来。
+
+### 本次改动
+| 位置 | 改动 |
+| --- | --- |
+| `ElytraRouteCalculate` | `onActivate/onDeactivate` → `onEnable/onDisable`（加 `@Override`） |
+| `AutoCircleSlab` | `onActivate` → `onEnable` |
+| `ElytraRouteCalculate` | `getInfoString()` → `getInfo()`（前者是本体的框架方法，覆写它会绕过 [xxx] 包装） |
+| `ElytraRouteCalculate` | `LUJD_DIR` 由 `lujd` 改为 **`AutoElytra`**，与上游 1.4.0(2) 对齐 |
+| `TiziStorage` | `TIZI_DIR` 由 `tizi` 改为 **`AutoElytra`**，与 `EndShipFinder`/`ItemFrameSearch`/`LockEnd` 一致 |
+| `ElytraRouteCalculate` | 新增 `clearAuxiliaryJson()`：搜索前清空 `zuobiao.json` / `ItemFrame.json`（上游 1.4.0(2) 新增行为） |
+
+### 目录一致性（这次顺带修掉）
+上游所有坐标/进度文件都在 `AutoElytra/<世界名>/` 下：
+`zuobiao.json`（末地船坐标）、`ItemFrame.json`（展示框）、`visited.json`、`route.json`。
+之前本工程把 `TiziStorage` 写成 `tizi/`、计算路线写成 `lujd/`，两边对不上，等于「算出来的坐标
+收集模块看不见」。现在统一到 `AutoElytra/`，也与玩家用原版插件时留下的数据兼容。

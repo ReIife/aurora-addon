@@ -169,7 +169,8 @@ public final class AutoCircleSlab extends AuroraModule {
         super("AutoCircleSlab", "Renders a spherical area and places slabs under every block that can spawn mobs.", category);
     }
 
-   public void onActivate() {
+   @Override
+   public void onEnable() {
       this.cacheDirty = true;
       this.placeTimer = 0;
       this.pendingPlaces.clear();
